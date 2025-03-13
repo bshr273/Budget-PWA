@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Budget PWA</title>
-  <!-- Link to the manifest -->
+  <title>Fixed Costs</title>
+  <!-- Link to manifest -->
   <link rel="manifest" href="manifest.json">
-  <!-- Responsive design meta tag -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- iOS-specific meta tags for full-screen appearance -->
+  <!-- Responsive viewport and disable zooming -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- iOS full-screen settings -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
@@ -66,6 +66,7 @@
       border-radius: 4px;
       background-color: var(--input-bg);
       color: var(--primary-color);
+      font-size: 16px; /* Prevent zooming on focus */
     }
     button {
       background-color: var(--button-bg);
@@ -100,7 +101,7 @@
 <body>
   <div class="container">
     <header>
-      <h1>Budget PWA</h1>
+      <h1>Fixed Costs</h1>
     </header>
 
     <!-- Income Section -->
@@ -251,7 +252,7 @@
       }
     });
 
-    // Load and update on page load
+    // On page load
     loadBudgetData();
     updateUI();
 
