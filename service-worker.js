@@ -1,10 +1,9 @@
-const CACHE_NAME = 'budget-pwa-cache-v1';
+const CACHE_NAME = 'budget-pwa-cache-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
   './service-worker.js',
-  // Include any icons or CSS files you use
   './icon192.png',
   './icon512.png'
 ];
