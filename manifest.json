@@ -1,6 +1,6 @@
 {
-  "name": "Budget PWA",
-  "short_name": "Budget",
+  "name": "Fixed Costs",
+  "short_name": "Fixed Costs",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#121212",
