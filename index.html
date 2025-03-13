@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Fixed Costs</title>
-  <!-- Link to manifest -->
+  <!-- Link to the manifest -->
   <link rel="manifest" href="manifest.json">
-  <!-- Responsive viewport and disable zooming -->
+  <!-- Responsive viewport & disable zooming -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <!-- iOS full-screen settings -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,6 +19,7 @@
       --button-bg: #333;
       --button-hover: #444;
       --input-bg: #1e1e1e;
+      --stripe-color: rgba(255, 255, 255, 0.05);
     }
     * {
       box-sizing: border-box;
@@ -66,7 +67,7 @@
       border-radius: 4px;
       background-color: var(--input-bg);
       color: var(--primary-color);
-      font-size: 16px; /* Prevent zooming on focus */
+      font-size: 16px; /* Prevent zooming on iOS */
     }
     button {
       background-color: var(--button-bg);
@@ -76,22 +77,39 @@
     button:hover {
       background-color: var(--button-hover);
     }
-    .summary, .expense-form, .income-form, .expenses-table-container {
+    .income-form,
+    .summary,
+    .expense-form,
+    .expenses-table-container {
       background-color: var(--secondary-bg);
       padding: 15px;
       border-radius: 8px;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
       margin-bottom: 20px;
     }
+    .expenses-table-container {
+      overflow-x: auto;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
     }
+    thead {
+      background-color: var(--button-bg);
+    }
     th, td {
       border: 1px solid #444;
-      padding: 8px;
+      padding: 10px;
       text-align: left;
+    }
+    tbody tr:nth-child(odd) {
+      background-color: var(--stripe-color);
+    }
+    .action-btn {
+      margin: 0 2px;
+      padding: 5px 10px;
+      font-size: 14px;
     }
     @media (max-width: 600px) {
       h1 { font-size: 1.8rem; }
@@ -127,6 +145,7 @@
             <th>Amount (€)</th>
             <th>Frequency</th>
             <th>Monthly Cost (€)</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -161,25 +180,22 @@
       expenses: []
     };
 
-    // Load data from localStorage
     function loadBudgetData() {
       const data = localStorage.getItem('budgetData');
       if (data) budgetData = JSON.parse(data);
     }
 
-    // Save data to localStorage
     function saveBudgetData() {
       localStorage.setItem('budgetData', JSON.stringify(budgetData));
     }
 
-    // Calculate monthly cost for an expense
     function calculateExpenseMonthly(exp) {
       const interval = parseFloat(exp.interval);
       if (isNaN(interval) || interval <= 0) return 0;
       let occurrencesPerMonth = 0;
       switch(exp.unit) {
         case "Day":
-          occurrencesPerMonth = 30.44 / interval; // avg days/month
+          occurrencesPerMonth = 30.44 / interval; // Average days/month
           break;
         case "Week":
           occurrencesPerMonth = (52 / 12) / interval; // ~4.33 weeks/month
@@ -194,29 +210,31 @@
       return parseFloat(exp.amount) * occurrencesPerMonth;
     }
 
-    // Calculate total fixed cost per month
     function calculateTotalFixed() {
       return budgetData.expenses.reduce((sum, exp) => sum + calculateExpenseMonthly(exp), 0);
     }
 
-    // Update the expenses table
     function updateExpensesTable() {
       const tbody = document.querySelector('#expensesTable tbody');
       tbody.innerHTML = '';
-      budgetData.expenses.forEach(exp => {
+      budgetData.expenses.forEach((exp, index) => {
         const monthlyCost = calculateExpenseMonthly(exp);
         const row = document.createElement('tr');
+        row.id = 'expense-row-' + index;
         row.innerHTML = `
           <td>${exp.name}</td>
           <td>€${parseFloat(exp.amount).toFixed(2)}</td>
           <td>Every ${exp.interval} ${exp.unit}${exp.interval > 1 ? 's' : ''}</td>
           <td>€${monthlyCost.toFixed(2)}</td>
+          <td>
+             <button class="action-btn" onclick="editExpense(${index})">Edit</button>
+             <button class="action-btn" onclick="deleteExpense(${index})">Delete</button>
+          </td>
         `;
         tbody.appendChild(row);
       });
     }
 
-    // Update the UI elements
     function updateUI() {
       document.getElementById('income').value = budgetData.income;
       const totalFixed = calculateTotalFixed();
@@ -226,7 +244,6 @@
       updateExpensesTable();
     }
 
-    // Set Income event
     document.getElementById('setIncomeBtn').addEventListener('click', () => {
       const incomeVal = parseFloat(document.getElementById('income').value);
       if (!isNaN(incomeVal)) {
@@ -236,7 +253,6 @@
       }
     });
 
-    // Add Expense event
     document.getElementById('addExpenseBtn').addEventListener('click', () => {
       const name = document.getElementById('expName').value.trim();
       const amount = parseFloat(document.getElementById('expAmount').value);
@@ -252,13 +268,58 @@
       }
     });
 
-    // On page load
+    function deleteExpense(index) {
+      if (confirm("Are you sure you want to delete this expense?")) {
+        budgetData.expenses.splice(index, 1);
+        saveBudgetData();
+        updateUI();
+      }
+    }
+
+    function editExpense(index) {
+      const expense = budgetData.expenses[index];
+      const row = document.getElementById('expense-row-' + index);
+      row.innerHTML = `
+        <td><input type="text" id="editName-${index}" value="${expense.name}" style="width: 100%;"></td>
+        <td><input type="number" id="editAmount-${index}" value="${expense.amount}" step="0.01" style="width: 100%;"></td>
+        <td>
+          <input type="number" id="editInterval-${index}" value="${expense.interval}" min="1" style="width: 30%; display:inline-block;">
+          <select id="editUnit-${index}" style="width: 65%; display:inline-block;">
+            <option value="Day" ${expense.unit === "Day" ? "selected" : ""}>Day</option>
+            <option value="Week" ${expense.unit === "Week" ? "selected" : ""}>Week</option>
+            <option value="Month" ${expense.unit === "Month" ? "selected" : ""}>Month</option>
+            <option value="Year" ${expense.unit === "Year" ? "selected" : ""}>Year</option>
+          </select>
+        </td>
+        <td>€${calculateExpenseMonthly(expense).toFixed(2)}</td>
+        <td>
+          <button class="action-btn" onclick="saveExpense(${index})">Save</button>
+          <button class="action-btn" onclick="cancelEdit(${index})">Cancel</button>
+        </td>
+      `;
+    }
+
+    function saveExpense(index) {
+      const newName = document.getElementById('editName-' + index).value.trim();
+      const newAmount = parseFloat(document.getElementById('editAmount-' + index).value);
+      const newInterval = parseFloat(document.getElementById('editInterval-' + index).value);
+      const newUnit = document.getElementById('editUnit-' + index).value;
+      if (newName && !isNaN(newAmount) && newAmount > 0 && !isNaN(newInterval) && newInterval > 0) {
+         budgetData.expenses[index] = { name: newName, amount: newAmount, interval: newInterval, unit: newUnit };
+         saveBudgetData();
+         updateUI();
+      } else {
+         alert("Invalid input.");
+      }
+    }
+
+    function cancelEdit(index) {
+      updateUI();
+    }
+
     loadBudgetData();
     updateUI();
 
-    // --------------------------
-    // PWA SERVICE WORKER REGISTRATION
-    // --------------------------
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('service-worker.js')
