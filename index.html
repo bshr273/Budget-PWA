@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget PWA</title>
+  <!-- Link to the manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- iOS-specific meta tags to make the app full-screen on launch -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    /* Dark theme styles */
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+    h1, h2, h3 { text-align: center; }
+    label { display: inline-block; width: 150px; }
+    input, select, button {
+      padding: 8px; margin: 5px; border: none; border-radius: 4px;
+    }
+    input, select {
+      background-color: #333; color: #e0e0e0;
+    }
+    button {
+      background-color: #555; color: #e0e0e0; cursor: pointer;
+    }
+    button:hover {
+      background-color: #777;
+    }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #444; padding: 8px; text-align: left;
+    }
+    .summary { margin-top: 20px; font-size: 1.2em; text-align: center; }
+    .expense-form div { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Budget PWA</h1>
+
+  <!-- Income Section -->
+  <div>
+    <label for="income">Monthly Income (€):</label>
+    <input type="number" id="income" step="0.01">
+    <button id="setIncomeBtn">Set Income</button>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary">
+    <p>Total Fixed Cost: <span id="totalFixed">€0.00</span> per month</p>
+    <p>Remaining Budget: <span id="remaining">€0.00</span> per month</p>
+  </div>
+  <hr>
+
+  <!-- Expenses Table -->
+  <h2>Expenses</h2>
+  <table id="expensesTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Amount (€)</th>
+        <th>Frequency</th>
+        <th>Monthly Cost (€)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Add Expense Form -->
+  <h3>Add Expense</h3>
+  <div class="expense-form">
+    <div>
+      <label for="expName">Expense Name:</label>
+      <input type="text" id="expName">
+    </div>
+    <div>
+      <label for="expAmount">Amount (€):</label>
+      <input type="number" id="expAmount" step="0.01">
+    </div>
+    <div>
+      <label for="expInterval">Every:</label>
+      <input type="number" id="expInterval" step="1" min="1" value="1">
+      <select id="expUnit">
+        <option value="Day">Day</option>
+        <option value="Week">Week</option>
+        <option value="Month" selected>Month</option>
+        <option value="Year">Year</option>
+      </select>
+    </div>
+    <button id="addExpenseBtn">Add Expense</button>
+  </div>
+  
+  <script>
+    // --------------------------
+    // BUDGET APP LOGIC
+    // --------------------------
+    let budgetData = {
+      income: 0.0,
+      expenses: []
+    };
+
+    // Load from localStorage
+    function loadBudgetData() {
+      const data = localStorage.getItem('budgetData');
+      if (data) {
+        budgetData = JSON.parse(data);
+      }
+    }
+
+    // Save to localStorage
+    function saveBudgetData() {
+      localStorage.setItem('budgetData', JSON.stringify(budgetData));
+    }
+
+    // Calculate monthly cost of an expense
+    function calculateExpenseMonthly(exp) {
+      const interval = parseFloat(exp.interval);
+      if (isNaN(interval) || interval <= 0) return 0;
+      let occurrencesPerMonth = 0;
+      switch(exp.unit) {
+        case "Day":
+          occurrencesPerMonth = 30.44 / interval;  // approx. days/month
+          break;
+        case "Week":
+          occurrencesPerMonth = (52 / 12) / interval; // ~4.33 weeks/month
+          break;
+        case "Month":
+          occurrencesPerMonth = 1 / interval;
+          break;
+        case "Year":
+          occurrencesPerMonth = 1 / (12 * interval);
+          break;
+      }
+      return parseFloat(exp.amount) * occurrencesPerMonth;
+    }
+
+    // Calculate total monthly fixed expenses
+    function calculateTotalFixed() {
+      return budgetData.expenses.reduce((sum, exp) => {
+        return sum + calculateExpenseMonthly(exp);
+      }, 0);
+    }
+
+    // Update the expenses table
+    function updateExpensesTable() {
+      const tbody = document.querySelector('#expensesTable tbody');
+      tbody.innerHTML = '';
+      budgetData.expenses.forEach(exp => {
+        const monthlyCost = calculateExpenseMonthly(exp);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${exp.name}</td>
+          <td>€${parseFloat(exp.amount).toFixed(2)}</td>
+          <td>Every ${exp.interval} ${exp.unit}${exp.interval > 1 ? 's' : ''}</td>
+          <td>€${monthlyCost.toFixed(2)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Update the UI
+    function updateUI() {
+      document.getElementById('income').value = budgetData.income;
+      const totalFixed = calculateTotalFixed();
+      document.getElementById('totalFixed').textContent = '€' + totalFixed.toFixed(2);
+      const remaining = budgetData.income - totalFixed;
+      document.getElementById('remaining').textContent = '€' + remaining.toFixed(2);
+      updateExpensesTable();
+    }
+
+    // Event: Set Income
+    document.getElementById('setIncomeBtn').addEventListener('click', () => {
+      const incomeVal = parseFloat(document.getElementById('income').value);
+      if (!isNaN(incomeVal)) {
+        budgetData.income = incomeVal;
+        saveBudgetData();
+        updateUI();
+      }
+    });
+
+    // Event: Add Expense
+    document.getElementById('addExpenseBtn').addEventListener('click', () => {
+      const name = document.getElementById('expName').value.trim();
+      const amount = parseFloat(document.getElementById('expAmount').value);
+      const interval = parseFloat(document.getElementById('expInterval').value);
+      const unit = document.getElementById('expUnit').value;
+      if (name && !isNaN(amount) && amount > 0 && !isNaN(interval) && interval > 0) {
+        budgetData.expenses.push({ name, amount, interval, unit });
+        saveBudgetData();
+        updateUI();
+        // Clear fields
+        document.getElementById('expName').value = '';
+        document.getElementById('expAmount').value = '';
+        document.getElementById('expInterval').value = '1';
+      }
+    });
+
+    // On page load
+    loadBudgetData();
+    updateUI();
+
+    // --------------------------
+    // PWA SERVICE WORKER
+    // --------------------------
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(() => console.log('Service Worker registered'))
+          .catch(err => console.log('SW registration failed: ', err));
+      });
+    }
+  </script>
+</body>
+</html>
